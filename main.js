@@ -34,14 +34,17 @@ function createOtherPlayerCube(id, position) {
 // Socket Events
 socket.on('currentPlayers', (players) => {
     Object.keys(players).forEach((id) => {
-        if (id !== socket.id) {
+        if (id !== socket.id && !otherPlayers[id]) {
             createOtherPlayerCube(id, players[id].position);
         }
     });
 });
 
 socket.on('newPlayer', (playerInfo) => {
-    createOtherPlayerCube(playerInfo.id, playerInfo.position);
+    // Only create a cube if it's NOT the local player and doesn't exist yet
+    if (playerInfo.id !== socket.id && !otherPlayers[playerInfo.id]) {
+        createOtherPlayerCube(playerInfo.id, playerInfo.position);
+    }
 });
 
 socket.on('playerMoved', (playerInfo) => {
