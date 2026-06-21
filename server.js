@@ -1,6 +1,11 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
@@ -9,6 +14,14 @@ const io = new Server(httpServer, {
         origin: "*", // Adjust this in production for security
         methods: ["GET", "POST"]
     }
+});
+
+// Serve static files from Vite build folder (dist)
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Ensure fallback for SPA routing
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const players = {};
