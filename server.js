@@ -19,8 +19,8 @@ const io = new Server(httpServer, {
 // Serve static files from Vite build folder (dist)
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Ensure fallback for SPA routing
-app.get('*', (req, res) => {
+// Ensure fallback for SPA routing (Express 5 compatible wildcard)
+app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
