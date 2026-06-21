@@ -16,10 +16,65 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// 2. Local Player (The Cube)
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-const cube = new THREE.Mesh(geometry, material);
+// Procedural Character Creator
+function createCharacter(color) {
+    const group = new THREE.Group();
+
+    // Body (Torso)
+    const bodyGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.4);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: color });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 0.5; // Offset to stand on floor
+    group.add(body);
+
+    // Head
+    const headGeometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+    const headMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac }); // Skin color
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 1.1;
+    group.add(head);
+
+    // Eyes
+    const eyeGeometry = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    
+    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    leftEye.position.set(-0.1, 1.15, 0.21);
+    group.add(leftEye);
+
+    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    rightEye.position.set(0.1, 1.15, 0.21);
+    group.add(rightEye);
+
+    // Arms
+    const armGeometry = new THREE.BoxGeometry(0.15, 0.6, 0.15);
+    const armMaterial = new THREE.MeshStandardMaterial({ color: color });
+    
+    const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+    leftArm.position.set(-0.4, 0.5, 0);
+    group.add(leftArm);
+
+    const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+    rightArm.position.set(0.4, 0.5, 0);
+    group.add(rightArm);
+
+    // Legs
+    const legGeometry = new THREE.BoxGeometry(0.18, 0.4, 0.18);
+    const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Pants/shoes
+    
+    const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+    leftLeg.position.set(-0.15, 0.2, 0);
+    group.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+    rightLeg.position.set(0.15, 0.2, 0);
+    group.add(rightLeg);
+
+    return group;
+}
+
+// 2. Local Player (The Character)
+const cube = createCharacter(0x00ff00);
 scene.add(cube);
 
 // 2.5 Add Lighting
@@ -70,14 +125,12 @@ function updatePlayerCount() {
     `;
 }
 
-// Helper to create a cube for other players
+// Helper to create a character for other players
 function createOtherPlayerCube(id, position) {
     if (otherPlayers[id]) return; // Safety check
     
-    console.log("Creating cube for player:", id);
-    const otherGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const otherMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); 
-    const otherCube = new THREE.Mesh(otherGeometry, otherMaterial);
+    console.log("Creating character for player:", id);
+    const otherCube = createCharacter(0xff0000); // Red character for others
     otherCube.position.set(position.x, position.y, position.z);
     scene.add(otherCube);
     otherPlayers[id] = otherCube;
@@ -128,16 +181,26 @@ let lastRotation = { x: 0, y: 0 };
 function animate() {
     requestAnimationFrame(animate);
 
-    // Standard rotation for local cube
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
-
     // Horizontal & Depth Movement
     let moved = false;
-    if (keys['ArrowUp']) { cube.position.z -= moveSpeed; moved = true; }
-    if (keys['ArrowDown']) { cube.position.z += moveSpeed; moved = true; }
-    if (keys['ArrowLeft']) { cube.position.x -= moveSpeed; moved = true; }
-    if (keys['ArrowRight']) { cube.position.x += moveSpeed; moved = true; }
+    let dx = 0;
+    let dz = 0;
+    
+    if (keys['ArrowUp']) { dz -= 1; moved = true; }
+    if (keys['ArrowDown']) { dz += 1; moved = true; }
+    if (keys['ArrowLeft']) { dx -= 1; moved = true; }
+    if (keys['ArrowRight']) { dx += 1; moved = true; }
+
+    if (moved) {
+        // Normalize movement vector to ensure consistent speed in all directions
+        const length = Math.sqrt(dx * dx + dz * dz);
+        if (length > 0) {
+            cube.position.x += (dx / length) * moveSpeed;
+            cube.position.z += (dz / length) * moveSpeed;
+            // Face the exact direction of movement
+            cube.rotation.y = Math.atan2(dx, dz);
+        }
+    }
 
     // Jump Physics
     if (isJumping) {
@@ -153,7 +216,7 @@ function animate() {
     }
 
     // Emit movement to server if position or rotation changed
-    if (moved || cube.rotation.x !== lastRotation.x || cube.rotation.y !== lastRotation.y) {
+    if (moved || cube.rotation.y !== lastRotation.y) {
         socket.emit('playerMovement', {
             position: { x: cube.position.x, y: cube.position.y, z: cube.position.z },
             rotation: { x: cube.rotation.x, y: cube.rotation.y }
